@@ -1,7 +1,7 @@
 #pragma once
 #include <string>
 
-class EventBus; // forward declaration
+class EventBus; // we need this so we can use EventBus without including the whole file
 
 class Publisher {
 public:
@@ -9,8 +9,7 @@ public:
 
     const std::string& getName() const { return name_; }
 
-    // Publish an event to the given partition.
-    // Returns the globalId assigned by the bus, or -1 on error.
+    // sends an event to the bus, returns the event number or -1 if something went wrong
     int publish(const std::string& eventType,
                 const std::string& partitionName,
                 const std::string& data);

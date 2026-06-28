@@ -3,9 +3,9 @@
 #include <string>
 #include "Event.h"
 
-// Stores events in a fixed-capacity circular buffer.
-// Each event gets a monotonically increasing globalId.
-// slot in buffer = globalId % capacity
+// saves events in a circular array - when it's full, old ones get replaced
+// each event gets a number starting from 0 going up
+// to find where an event sits: event number % array size
 class Partition {
 public:
     Partition(std::string name, int capacity);
@@ -14,21 +14,20 @@ public:
     int getCapacity()      const { return capacity_; }
     int getNextGlobalId()  const { return nextGlobalId_; }
 
-    // Assigns the next globalId to the event and writes it into the buffer.
-    // Returns the assigned globalId.
+    // saves the event and returns the number we gave it
     int publish(const std::string& eventType, const std::string& data);
 
     Event getEvent(int globalId) const;
     bool  isAvailable(int globalId) const;
 
-    // Oldest globalId still in the buffer (newer events may have overwritten older ones).
+    // the oldest event number that's still saved (not replaced yet)
     int getOldestAvailableId() const;
-    // Newest globalId currently stored (-1 if empty).
+    // the newest event number saved (-1 if nothing was published yet)
     int getNewestAvailableId() const;
 
 private:
     std::string        name_;
     int                capacity_;
     std::vector<Event> buffer_;
-    int                nextGlobalId_; // next id to assign
+    int                nextGlobalId_; // the next number to give to the next event
 };

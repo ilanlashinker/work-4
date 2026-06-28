@@ -2,7 +2,7 @@
 #include <iostream>
 #include <algorithm>
 
-// ---- Setup ----------------------------------------------------------------
+// setup functions
 
 void EventBus::createPartition(const std::string& name, int capacity) {
     if (partitions_.count(name)) {
@@ -35,7 +35,7 @@ bool EventBus::subscribe(const std::string& subscriberName,
     info.subscriberName      = subscriberName;
     info.partitionName       = partitionName;
     info.eventType           = eventType;
-    // Pointer starts at the next event that will be published (miss nothing from now on).
+    // start reading from the next event that gets published so we don't miss anything
     info.consumptionPointer  = partitions_[partitionName]->getNextGlobalId();
 
     subscriptions_[partitionName][subscriberName] = info;
@@ -47,7 +47,7 @@ bool EventBus::subscribe(const std::string& subscriberName,
     return true;
 }
 
-// ---- Operations -----------------------------------------------------------
+// main functions
 
 int EventBus::publish(const std::string& eventType,
                        const std::string& partitionName,
@@ -86,7 +86,7 @@ bool EventBus::consume(const std::string& subscriberName,
     while (info.consumptionPointer <= partition->getNewestAvailableId()) {
         int ptr = info.consumptionPointer;
 
-        // Event was overwritten while the subscriber was not consuming fast enough.
+        // this event got replaced by a newer one before the subscriber could read it
         if (!partition->isAvailable(ptr)) {
             int newPtr = partition->getOldestAvailableId();
             std::cerr << "[BUS][WARN] Event #" << ptr << " was overwritten in '"
@@ -97,7 +97,7 @@ bool EventBus::consume(const std::string& subscriberName,
         }
 
         Event evt = partition->getEvent(ptr);
-        info.consumptionPointer++; // advance past this slot regardless of type match
+        info.consumptionPointer++; // always move forward, even if we end up skipping this event
 
         if (info.eventType.empty() || evt.type == info.eventType) {
             subscribers_[subscriberName]->onEvent(evt);
@@ -105,7 +105,7 @@ bool EventBus::consume(const std::string& subscriberName,
                       << partitionName << "' -> " << info.consumptionPointer << "\n";
             return true;
         }
-        // Non-matching event: skip silently (pointer already advanced).
+        // wrong type, just skip it
     }
 
     std::cout << "[BUS] No new matching events for '" << subscriberName
@@ -151,10 +151,10 @@ std::string EventBus::rewind(const std::string& subscriberName,
               << " (rewound " << steps << " step(s))\n";
 
     info.consumptionPointer = newPtr;
-    return ""; // success
+    return ""; // all good
 }
 
-// ---- Inspection -----------------------------------------------------------
+// helper functions
 
 Partition* EventBus::getPartition(const std::string& name) {
     auto it = partitions_.find(name);

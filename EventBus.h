@@ -5,49 +5,44 @@
 #include "Partition.h"
 #include "ISubscriber.h"
 
-// Per-subscription state: which partition/type the subscriber tracks
-// and where its consumption pointer currently sits.
+// saves info about one subscriber in one partition - what type they want and where they stopped reading
 struct SubscriptionInfo {
     std::string subscriberName;
     std::string partitionName;
-    std::string eventType;        // empty = accept all types
-    int         consumptionPointer; // next globalId to try consuming
+    std::string eventType;        // if empty, the subscriber gets all event types
+    int         consumptionPointer; // the next event number this subscriber should read
 };
 
-// Central event bus: owns partitions, routes publish calls,
-// tracks per-subscriber consumption pointers, and handles rewind.
+// the main class that connects publishers and subscribers and manages everything
 class EventBus {
 public:
-    // --- Setup ---
+    // setup functions
     void createPartition(const std::string& name, int capacity);
     void registerSubscriber(ISubscriber* subscriber);
 
-    // Subscribe a registered subscriber to a specific event type within a partition.
-    // Pass empty string for eventType to receive all types.
+    // sign up a subscriber to a partition and event type. use "" to get all types
     bool subscribe(const std::string& subscriberName,
                    const std::string& partitionName,
                    const std::string& eventType);
 
-    // --- Operations ---
+    // main actions
 
-    // Publish an event; returns the globalId assigned (-1 on error).
+    // sends an event to a partition and returns the event number (-1 if something went wrong)
     int publish(const std::string& eventType,
                 const std::string& partitionName,
                 const std::string& data);
 
-    // Pull the next matching event for the subscriber and deliver it via onEvent().
-    // Skips events of other types and auto-advances past overwritten events.
-    // Returns true if an event was delivered.
+    // reads the next event for this subscriber, skips wrong types and replaced events
+    // returns true if we found and delivered an event
     bool consume(const std::string& subscriberName,
                  const std::string& partitionName);
 
-    // Move the subscriber's pointer back by `steps` positions.
-    // Returns an empty string on success, or a descriptive error message on failure.
+    // go back N steps. returns "" if it worked, or an error message if we can't
     std::string rewind(const std::string& subscriberName,
                        const std::string& partitionName,
                        int steps);
 
-    // --- Inspection (used by tests) ---
+    // helper functions used by the tests
     Partition*       getPartition(const std::string& name);
     SubscriptionInfo* getSubscriptionInfo(const std::string& subscriberName,
                                           const std::string& partitionName);
@@ -57,6 +52,6 @@ public:
 private:
     std::map<std::string, std::unique_ptr<Partition>> partitions_;
     std::map<std::string, ISubscriber*>               subscribers_;
-    // subscriptions_[partitionName][subscriberName]
+    // first key is partition name, second key is subscriber name
     std::map<std::string, std::map<std::string, SubscriptionInfo>> subscriptions_;
 };

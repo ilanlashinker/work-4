@@ -16,7 +16,7 @@ int Partition::publish(const std::string& eventType, const std::string& data) {
 }
 
 Event Partition::getEvent(int globalId) const {
-    if (!isAvailable(globalId)) return Event(); // invalid sentinel
+    if (!isAvailable(globalId)) return Event(); // return empty event if the id is not in the buffer
     return buffer_[globalId % capacity_];
 }
 

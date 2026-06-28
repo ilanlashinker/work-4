@@ -9,20 +9,18 @@ int main() {
     std::cout << "   Event-Driven Architecture – Pub/Sub Demo\n";
     std::cout << "====================================================\n\n";
 
-    // -------------------------------------------------------
-    // 1. Setup: bus, partitions, publishers, subscribers
-    // -------------------------------------------------------
+    // step 1: create everything
     EventBus bus;
 
-    // Two partitions (capacity=6 so we can demo circular-buffer overwrite during demo)
+    // orders is small on purpose so we can see old events get replaced
     bus.createPartition("orders",    6);
     bus.createPartition("inventory", 10);
 
-    // Two publishers
+    // two publishers
     Publisher orderPub("OrderService",     bus);
     Publisher inventoryPub("InventoryService", bus);
 
-    // Three subscribers
+    // three subscribers
     Subscriber subCreated ("OrderCreatedHandler");
     Subscriber subApproved("OrderApprovedHandler");
     Subscriber subInventory("InventoryHandler");
@@ -31,38 +29,33 @@ int main() {
     bus.registerSubscriber(&subApproved);
     bus.registerSubscriber(&subInventory);
 
-    // Subscriptions: each subscriber registers to one partition + one event type
+    // connect each subscriber to the right partition and event type
     bus.subscribe("OrderCreatedHandler",  "orders",    "ORDER_CREATED");
     bus.subscribe("OrderApprovedHandler", "orders",    "ORDER_APPROVED");
     bus.subscribe("InventoryHandler",     "inventory", "STOCK_UPDATE");
 
-    // -------------------------------------------------------
-    // 2. Publish events (>= 10 total)
-    // -------------------------------------------------------
+    // step 2: publish events
     std::cout << "\n--- Publishing Events ---\n";
 
-    // 7 events to 'orders' (capacity=6 → event #0 gets overwritten by #6)
+    // 7 events to orders, but it only holds 6 so the first one gets replaced
     orderPub.publish("ORDER_CREATED",  "orders", "Order #1001 – Alice");
     orderPub.publish("ORDER_APPROVED", "orders", "Order #1001 approved");
     orderPub.publish("ORDER_CREATED",  "orders", "Order #1002 – Bob");
     orderPub.publish("ORDER_APPROVED", "orders", "Order #1002 approved");
     orderPub.publish("ORDER_CREATED",  "orders", "Order #1003 – Carol");
     orderPub.publish("ORDER_APPROVED", "orders", "Order #1003 approved");
-    orderPub.publish("ORDER_CREATED",  "orders", "Order #1004 – Dave"); // overwrites #0
+    orderPub.publish("ORDER_CREATED",  "orders", "Order #1004 – Dave"); // this one replaces event #0
 
-    // 4 events to 'inventory'
+    // 4 events to inventory
     inventoryPub.publish("STOCK_UPDATE", "inventory", "Product A: 100 units");
     inventoryPub.publish("STOCK_UPDATE", "inventory", "Product B:  50 units");
     inventoryPub.publish("STOCK_UPDATE", "inventory", "Product C: 200 units");
     inventoryPub.publish("STOCK_UPDATE", "inventory", "Product A:  80 units");
 
-    // -------------------------------------------------------
-    // 3. Consume events
-    // -------------------------------------------------------
+    // step 3: read events
     std::cout << "\n--- Consuming Events ---\n";
 
-    // OrderCreatedHandler: subscribes to ORDER_CREATED.
-    // Event #0 ("Order #1001") was overwritten – bus will warn and skip to oldest=#1.
+    // event 0 was replaced so the bus will skip it and start from the next one
     std::cout << "\n[OrderCreatedHandler consuming from 'orders']:\n";
     for (int i = 0; i < 4; i++) bus.consume("OrderCreatedHandler", "orders");
 
@@ -72,12 +65,10 @@ int main() {
     std::cout << "\n[InventoryHandler consuming from 'inventory']:\n";
     for (int i = 0; i < 4; i++) bus.consume("InventoryHandler", "inventory");
 
-    // -------------------------------------------------------
-    // 4. Rewind demo
-    // -------------------------------------------------------
+    // step 4: try the rewind feature
     std::cout << "\n--- Rewind Demo ---\n";
 
-    // Rewind OrderCreatedHandler by 1 step and re-consume
+    // go back 1 step and read the last event again
     std::string result = bus.rewind("OrderCreatedHandler", "orders", 1);
     if (result.empty()) {
         std::cout << "[OrderCreatedHandler re-consuming after rewind]:\n";
@@ -86,13 +77,13 @@ int main() {
         std::cout << result << "\n";
     }
 
-    // Attempt an illegal rewind (too many steps back – events overwritten)
+    // this should fail because we're going too far back
     std::cout << "\n[Attempting illegal rewind of 10 steps]:\n";
     result = bus.rewind("OrderCreatedHandler", "orders", 10);
     if (!result.empty())
         std::cout << result << "\n";
 
-    // Rewind InventoryHandler by 2 steps, then replay
+    // go back 2 steps and read those events again
     std::cout << "\n[InventoryHandler rewinding 2 steps]:\n";
     result = bus.rewind("InventoryHandler", "inventory", 2);
     if (result.empty()) {
@@ -100,9 +91,7 @@ int main() {
         bus.consume("InventoryHandler", "inventory");
     }
 
-    // -------------------------------------------------------
-    // 5. Stats & tests
-    // -------------------------------------------------------
+    // step 5: show stats and run the tests
     bus.printStats();
 
     Tests::runAll();

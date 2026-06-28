@@ -12,9 +12,8 @@ void Tests::report(int num, const std::string& desc, bool passed) {
               << " Test " << num << ": " << desc << "\n";
 }
 
-// -------------------------------------------------------------------
-// Test 1 – subscriber receives only events from its subscribed partition
-// -------------------------------------------------------------------
+// Test 1 : subscriber receives only events from its subscribed partition
+
 void Tests::test1_partitionIsolation() {
     sep(1, "Partition isolation");
 
@@ -37,9 +36,9 @@ void Tests::test1_partitionIsolation() {
     report(1, "Subscriber receives only events from subscribed partition", passed);
 }
 
-// -------------------------------------------------------------------
-// Test 2 – subscriber receives only the event type it registered for
-// -------------------------------------------------------------------
+
+// Test 2 : subscriber receives only the event type it registered for
+
 void Tests::test2_eventTypeFilter() {
     sep(2, "Event-type filter");
 
@@ -55,7 +54,7 @@ void Tests::test2_eventTypeFilter() {
     bus.publish("ORDER_CREATED",  "orders", "c2");
     bus.publish("ORDER_APPROVED", "orders", "a2");
 
-    // Pull 4 times – should deliver only 2 (the ORDER_CREATED events)
+    // Pull 4 times should deliver only 2 (the ORDER_CREATED events)
     for (int i = 0; i < 4; i++) bus.consume("SubB", "orders");
 
     bool passed = subB.getReceivedEvents().size() == 2;
@@ -64,9 +63,9 @@ void Tests::test2_eventTypeFilter() {
     report(2, "Subscriber receives only subscribed event type", passed);
 }
 
-// -------------------------------------------------------------------
-// Test 3 – consumption pointer advances after each consume
-// -------------------------------------------------------------------
+
+// Test 3 : consumption pointer advances after each consume
+
 void Tests::test3_pointerAdvances() {
     sep(3, "Pointer advances");
 
@@ -89,16 +88,16 @@ void Tests::test3_pointerAdvances() {
     report(3, "Consumption pointer advances after consuming", after > before);
 }
 
-// -------------------------------------------------------------------
-// Test 4 – circular buffer overwrites oldest when full
-// -------------------------------------------------------------------
+
+// Test 4 : circular buffer overwrites oldest when full
+
 void Tests::test4_circularBufferOverwrite() {
     sep(4, "Circular buffer overwrite");
 
     EventBus bus;
     bus.createPartition("small", 3); // capacity = 3
 
-    // Publish 5 events: IDs 0-4 → only IDs 2,3,4 remain
+    // publish 5 events but the array only holds 3, so only the last 3 survive
     for (int i = 0; i < 5; i++)
         bus.publish("EV", "small", "ev" + std::to_string(i));
 
@@ -112,9 +111,7 @@ void Tests::test4_circularBufferOverwrite() {
     report(4, "Circular buffer overwrites old events when full", passed);
 }
 
-// -------------------------------------------------------------------
-// Test 5 – rewind moves pointer back; subscriber re-consumes the event
-// -------------------------------------------------------------------
+// Test 5 : rewind moves pointer back; subscriber re-consumes the event
 void Tests::test5_rewindWorks() {
     sep(5, "Rewind works");
 
@@ -140,9 +137,7 @@ void Tests::test5_rewindWorks() {
     report(5, "Rewind returns subscriber to previous event", passed);
 }
 
-// -------------------------------------------------------------------
-// Test 6 – rewinding to an overwritten event returns an error
-// -------------------------------------------------------------------
+// Test 6 : rewinding to an overwritten event returns an error
 void Tests::test6_rewindToOverwritten() {
     sep(6, "Rewind to overwritten event");
 
@@ -153,26 +148,24 @@ void Tests::test6_rewindToOverwritten() {
     bus.registerSubscriber(&sub);
     bus.subscribe("SubOvw", "tiny", "EV"); // pointer starts at 0
 
-    // Publish 5 events: IDs 0-4.  IDs 0 & 1 are now overwritten.
+    // publish 5 events but the buffer only holds 3, so events 0 and 1 got replaced
     for (int i = 0; i < 5; i++)
         bus.publish("EV", "tiny", "ev" + std::to_string(i));
 
-    // Consume the 3 available events (auto-advances past #0 and #1 internally).
+    // read the 3 events that are still there (the bus will skip 0 and 1 on its own)
     bus.consume("SubOvw", "tiny"); // gets #2, pointer→3
     bus.consume("SubOvw", "tiny"); // gets #3, pointer→4
     bus.consume("SubOvw", "tiny"); // gets #4, pointer→5
 
-    // Request rewind 4 steps → target #1, which is overwritten.
+    // going back 4 steps would land on event 1 which is already gone
     std::string err = bus.rewind("SubOvw", "tiny", 4);
 
-    bool passed = !err.empty(); // must return a non-empty error string
+    bool passed = !err.empty(); // we should get an error message, not a crash
     std::cout << "  Error message: " << err << "\n";
     report(6, "Rewind to overwritten event returns error", passed);
 }
 
-// -------------------------------------------------------------------
-// Test 7 – multiple subscribers on the same partition are independent
-// -------------------------------------------------------------------
+// Test 7 : multiple subscribers on the same partition are independent
 void Tests::test7_multipleSubscribersIndependent() {
     sep(7, "Multiple subscribers independent");
 
