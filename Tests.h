@@ -1,7 +1,7 @@
 #pragma once
 #include <string>
 
-// Runs all 7 mandatory tests against freshly created EventBus instances.
+
 class Tests {
 public:
     static void runAll();
